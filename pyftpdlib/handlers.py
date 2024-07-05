@@ -3838,3 +3838,12 @@ if SSL is not None:
                 self.respond(f'521 PROT {arg} unsupported (use C or P).')
             else:
                 self.respond("502 Unrecognized PROT type (use C or P).")
+    class SSLImplicitFTPHandler(TLS_FTPHandler):
+        def handle(self):
+            self.secure_connection(self.ssl_context)
+        
+        def handle_ssl_established(self):
+            FTPHandler.handle(self)
+        
+        def ftp_AUTH(self, arg):
+            self.respond("550 not supposed to be used with implicit SSL.")
