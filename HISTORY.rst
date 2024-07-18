@@ -5,9 +5,16 @@ Version: 2.0.0 - (IN DEVELOPMENT)
 
 **Enhancements**
 
+* #625: exposed a new ``FTPHandler.encoding`` attribute defaulting to
+  ``'utf-8'``. It can be used to change the encoding used for client / server
+  communication.
 * #629: removed Python 2.7 support.
 * #637: remove copies of asyncore.py and asynchat.py. Use backports from PYPI
   instead.  (patch by @penguinpee)
+* #639: set default SSL version from deprecated ``SSLv23_METHOD`` to newer
+  ``TLS_SERVER_METHOD``. This is the setting recommended by latest OpenSSL doc,
+  and includes the TLSv1, TLSv1.1, TLSv1.2, TLSv1.3. Versions SSLv2 and SSLv3
+  are disabled.
 
 **Notes about backward compatibility**
 

@@ -1288,6 +1288,9 @@ class FTPHandler(AsyncChat):
         significantly better performances (default True on all systems
         where it is supported).
 
+     - (str) encoding: the encoding used for client / server
+       communication. Defaults to 'utf-8'.
+
      - (str) unicode_errors:
        the error handler passed to ''.encode() and ''.decode():
        http://docs.python.org/library/stdtypes.html#str.decode
@@ -1333,6 +1336,7 @@ class FTPHandler(AsyncChat):
     use_gmt_times = True
     use_sendfile = hasattr(os, "sendfile")  # added in python 3.3
     tcp_no_delay = hasattr(socket, "TCP_NODELAY")
+    encoding = "utf8"
     unicode_errors = 'replace'
     log_prefix = '%(remote_ip)s:%(remote_port)s-[%(username)s]'
     auth_failed_timeout = 3
@@ -1546,7 +1550,7 @@ class FTPHandler(AsyncChat):
             self._in_buffer_len = 0
 
     def decode(self, bytes):
-        return bytes.decode('utf8', self.unicode_errors)
+        return bytes.decode(self.encoding, self.unicode_errors)
 
     def found_terminator(self):
         r"""Called when the incoming data stream matches the \r\n
@@ -1883,7 +1887,7 @@ class FTPHandler(AsyncChat):
     # --- utility
 
     def push(self, data):
-        asynchat.async_chat.push(self, data.encode('utf8'))
+        asynchat.async_chat.push(self, data.encode(self.encoding))
 
     def respond(self, resp, logfun=logger.debug):
         """Send a response to the client using the command channel."""
@@ -2347,7 +2351,7 @@ class FTPHandler(AsyncChat):
                 # RFC 959 recommends the listing to be sorted.
                 listing.sort()
                 data = '\r\n'.join(listing) + '\r\n'
-            data = data.encode('utf8', self.unicode_errors)
+            data = data.encode(self.encoding, self.unicode_errors)
             self.push_dtp_data(data, cmd="NLST")
             return path
 
@@ -2379,7 +2383,7 @@ class FTPHandler(AsyncChat):
         except (OSError, FilesystemError) as err:
             self.respond(f'550 {_strerror(err)}.')
         else:
-            data = data.decode('utf8', self.unicode_errors)
+            data = data.decode(self.encoding, self.unicode_errors)
             # since TVFS is supported (see RFC-3659 chapter 6), a fully
             # qualified pathname should be returned
             data = data.split(' ')[0] + f' {line}\r\n'
@@ -3090,7 +3094,9 @@ class FTPHandler(AsyncChat):
 
     def ftp_FEAT(self, line):
         """List all new features supported as defined in RFC-2398."""
-        features = {'UTF8', 'TVFS'}
+        features = {'TVFS'}
+        if self.encoding.lower() in ("utf8", "utf-8"):
+            features.add('UTF8')
         features.update([
             feat
             for feat in ('EPRT', 'EPSV', 'MDTM', 'MFMT', 'SIZE')
@@ -3665,14 +3671,15 @@ if SSL is not None:
 
          - (int) ssl_protocol:
             the desired SSL protocol version to use. This defaults to
-            PROTOCOL_SSLv23 which will negotiate the highest protocol
-            that both the server and your installation of OpenSSL
-            support.
+            TLS_SERVER_METHOD, which includes TLSv1, TLSv1.1, TLSv1.2
+            and TLSv1.3. The actual protocol version used will be
+            negotiated to the highest version mutually supported by the
+            client and the server.
 
          - (int) ssl_options:
             specific OpenSSL options. These default to:
-            SSL.OP_NO_SSLv2 | SSL.OP_NO_SSLv3| SSL.OP_NO_COMPRESSION
-            which are all considered insecure features.
+            SSL.OP_NO_SSLv2 | SSL.OP_NO_SSLv3 | SSL.OP_NO_COMPRESSION
+            ...which are all considered insecure features.
             Can be set to None in order to improve compatibility with
             older (insecure) FTP clients.
 
@@ -3687,7 +3694,8 @@ if SSL is not None:
         tls_data_required = False
         certfile = None
         keyfile = None
-        ssl_protocol = SSL.SSLv23_METHOD
+        # Includes: SSLv3, TLSv1, TLSv1.1, TLSv1.2, TLSv1.3
+        ssl_protocol = SSL.TLS_SERVER_METHOD
         # - SSLv2 is easily broken and is considered harmful and dangerous
         # - SSLv3 has several problems and is now dangerous
         # - Disable compression to prevent CRIME attacks for OpenSSL 1.0+
